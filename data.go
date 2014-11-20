@@ -14,17 +14,17 @@ type Show struct {
 		Season     float64 `json:"season"`
 		Title      string  `json:"title"`
 		Torrents   struct {
-			_ struct {
+			Sd struct {
 				Peers float64 `json:"peers"`
 				Seeds float64 `json:"seeds"`
 				URL   string  `json:"url"`
 			} `json:"0"`
-			_80p struct {
+			Sd480p struct {
 				Peers float64 `json:"peers"`
 				Seeds float64 `json:"seeds"`
 				URL   string  `json:"url"`
 			} `json:"480p"`
-			_20p struct {
+			Hd720p struct {
 				Peers float64 `json:"peers"`
 				Seeds float64 `json:"seeds"`
 				URL   string  `json:"url"`

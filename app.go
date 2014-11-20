@@ -51,9 +51,9 @@ func main() {
 		// For each episode get available resolutions and check if they exist on the given directory (tvpath)
 		for _, episode := range show.Episodes {
 			fmt.Printf("> > S%dE%d", int(episode.Season), int(episode.Episode))
-			if episode.Torrents._20p.URL != "" {
+			if episode.Torrents.Hd720p.URL != "" {
 				fmt.Printf(" @ 720p")
-			} else if episode.Torrents._80p.URL != "" {
+			} else if episode.Torrents.Sd480p.URL != "" {
 				fmt.Printf(" @ 480p")
 			} else {
 				fmt.Printf(" @ sdtv")
