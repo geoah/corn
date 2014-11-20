@@ -27,7 +27,6 @@ func getShow(imdbid string) Show {
 		case *json.SyntaxError:
 			fmt.Println(string(body[v.Offset-40 : v.Offset]))
 		}
-		return nil
 	} else {
 		fmt.Println(data.Title)
 	}
@@ -40,7 +39,7 @@ func main() {
 	//
 	app.Action = func(c *cli.Context) {
 		imdbid := c.Args()[0]
-		tvpath := c.Args()[1]
+		//tvpath := c.Args()[1]
 
 		// TODO Check for first arg
 		fmt.Println("Trying to get show with imdb id: ", imdbid)
@@ -52,7 +51,6 @@ func main() {
 		// For each episode get available resolutions and check if they exist on the given directory (tvpath)
 		for _, episode := range show.Episodes {
 			fmt.Printf("> > S%dE%d", int(episode.Season), int(episode.Episode))
-			fmt.Println(episode.Torrents._20p.URL)
 			if episode.Torrents._20p.URL != "" {
 				fmt.Printf(" @ 720p")
 			} else if episode.Torrents._80p.URL != "" {
