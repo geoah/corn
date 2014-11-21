@@ -6,8 +6,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/codegangsta/cli"
+	"github.com/kennygrant/sanitize"
 )
 
 // getShow retrieves a tv show from eztvapi using its imdb id and returns the a Show, or nil
@@ -39,7 +41,7 @@ func main() {
 	//
 	app.Action = func(c *cli.Context) {
 		imdbid := c.Args()[0]
-		//tvpath := c.Args()[1]
+		tvpath := c.Args()[1]
 
 		// TODO Check for first arg
 		fmt.Println("Trying to get show with imdb id: ", imdbid)
@@ -58,6 +60,8 @@ func main() {
 			} else {
 				fmt.Printf(" @ sdtv")
 			}
+			var episodepath string = fmt.Sprintf("%s/%s/season.%d", tvpath, sanitize.Path(strings.Replace(show.Title, " ", ".", -1)), int(episode.Season))
+			fmt.Printf(" will be stored under '%s/'", episodepath)
 			fmt.Printf("\n")
 		}
 		fmt.Println("")
