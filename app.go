@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
-
 	"github.com/codegangsta/cli"
+	"github.com/jackpal/Taipei-Torrent/torrent"
 	"github.com/kennygrant/sanitize"
 )
 
@@ -35,6 +36,31 @@ func getShow(imdbid string) Show {
 	return data
 }
 
+func downloadTorrentFromMagnetLinks(magnetLinks []string) {
+	var torrentFlags torrent.TorrentFlags
+	torrentFlags = torrent.TorrentFlags{
+		//Dial:                dialerFromFlags(),
+		//Port:                *port,
+		//FileDir:             *fileDir,
+		//SeedRatio:           *seedRatio,
+		//UseDeadlockDetector: *useDeadlockDetector,
+		//UseLPD:              *useLPD,
+		UseDHT: true,
+		//UseUPnP:             *useUPnP,
+		//UseNATPMP:           *useNATPMP,
+		//TrackerlessMode:     *trackerlessMode,
+		// IP address of gateway
+		//Gateway: *gateway,
+	}
+
+	log.Println("Starting.")
+
+	err := torrent.RunTorrents(&torrentFlags, magnetLinks)
+	if err != nil {
+		log.Fatal("Could not run torrents", magnetLinks, err)
+	}
+}
+
 func main() {
 	app := cli.NewApp()
 
@@ -50,6 +76,9 @@ func main() {
 		// Get the Show
 		var show Show = getShow(imdbid)
 
+		// Magnet Links
+		magnetLinks := make([]string, 0, len(show.Episodes))
+
 		// For each episode get available resolutions and check if they exist on the given directory (tvpath)
 		for _, episode := range show.Episodes {
 			fmt.Printf("> > S%dE%d", int(episode.Season), int(episode.Episode))
@@ -59,12 +88,16 @@ func main() {
 				fmt.Printf(" @ 480p")
 			} else {
 				fmt.Printf(" @ sdtv")
+
 			}
+			magnetLinks = append(magnetLinks, episode.Torrents.Sd.URL)
 			var episodepath string = fmt.Sprintf("%s/%s/season.%d", tvpath, sanitize.Path(strings.Replace(show.Title, " ", ".", -1)), int(episode.Season))
 			fmt.Printf(" will be stored under '%s/'", episodepath)
 			fmt.Printf("\n")
 		}
 		fmt.Println("")
+		log.Println(magnetLinks)
+		downloadTorrentFromMagnetLinks(magnetLinks)
 	}
 	app.Run(os.Args)
 }
