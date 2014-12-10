@@ -120,7 +120,7 @@ func (s *Series) CheckForExistingEpisodes() {
 			// TODO Log Error
 			return err
 		}
-		if f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
+		if !f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
 			res := regOne.FindAllStringSubmatch(f.Name(), -1)
 			if len(res) > 0 && len(res[0]) > 0 {
 				season, _ := strconv.ParseUint(res[0][1], 10, 64)
