@@ -1,38 +1,30 @@
 package main
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
-	"strings"
+	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/kennygrant/sanitize"
+	"github.com/garfunkel/go-tvdb"
 )
 
-// getShow retrieves a tv show from eztvapi using its imdb id and returns the a Show, or nil
-func getShow(imdbid string) Show {
-	url := "http://eztvapi.re/show/" + imdbid
-	res, err := http.Get(url)
-	// TODO Check for errors
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	// TODO Check for errors
-	var data Show
-	err = json.Unmarshal(body, &data)
+// GetSeries from tvdbcom
+func getShowInfo(seriesName string) (tvdb.Series, error) {
+	seriesList, err := tvdb.GetSeries(seriesName)
+
 	if err != nil {
-		fmt.Println("Somethign went wrong.")
-		fmt.Printf("%T\n%s\n%#v\n", err, err, err)
-		switch v := err.(type) {
-		case *json.SyntaxError:
-			fmt.Println(string(body[v.Offset-40 : v.Offset]))
-		}
-	} else {
-		fmt.Println(data.Title)
+		return tvdb.Series{}, err
 	}
-	return data
+
+	if len(seriesList.Series) > 0 {
+		var series = *seriesList.Series[0]
+		series.GetDetail()
+		return series, nil
+	} else {
+		return tvdb.Series{}, errors.New("Not found")
+	}
 }
 
 func main() {
@@ -40,31 +32,52 @@ func main() {
 
 	//
 	app.Action = func(c *cli.Context) {
-		imdbid := c.Args()[0]
-		tvpath := c.Args()[1]
-
-		// TODO Check for first arg
-		fmt.Println("Trying to get show with imdb id: ", imdbid)
-		fmt.Println("> Available episodes: ")
-
-		// Get the Show
-		var show Show = getShow(imdbid)
-
-		// For each episode get available resolutions and check if they exist on the given directory (tvpath)
-		for _, episode := range show.Episodes {
-			fmt.Printf("> > S%dE%d", int(episode.Season), int(episode.Episode))
-			if episode.Torrents.Hd720p.URL != "" {
-				fmt.Printf(" @ 720p")
-			} else if episode.Torrents.Sd480p.URL != "" {
-				fmt.Printf(" @ 480p")
-			} else {
-				fmt.Printf(" @ sdtv")
-			}
-			var episodepath string = fmt.Sprintf("%s/%s/season.%d", tvpath, sanitize.Path(strings.Replace(show.Title, " ", ".", -1)), int(episode.Season))
-			fmt.Printf(" will be stored under '%s/'", episodepath)
-			fmt.Printf("\n")
+		if len(c.Args()) == 0 {
+			fmt.Println("Missing tv directory path.")
+			return
 		}
-		fmt.Println("")
+
+		// Get tvpath from args
+		tvpath := c.Args()[0]
+
+		// Open tvpath directory
+		dir, err := os.Open(tvpath)
+		if err != nil {
+			return
+		}
+		defer dir.Close()
+
+		// Loop all directories
+		// TODO Errors
+		fileInfos, err := dir.Readdir(-1)
+		if err != nil {
+			return
+		}
+		for _, fi := range fileInfos {
+			// TODO Check if is folder
+			// TODO Ignore any file starting with a special charachter
+			fmt.Println("Trying to find series (", fi.Name(), ")")
+			// Try to find each series according to folder name
+			series, err := getShowInfo(fi.Name())
+			if err == nil {
+				for _, seasonEpisodes := range series.Seasons {
+					for _, episode := range seasonEpisodes {
+						aired, err := time.Parse("2006-02-01", episode.FirstAired)
+						if err != nil {
+
+						} else {
+							if aired.Before(time.Now()) {
+								fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "aired", episode.FirstAired)
+							} else {
+								fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "not yet aired, airing on", episode.FirstAired)
+							}
+						}
+					}
+				}
+			} else {
+				fmt.Println("Could not match series with error ", err)
+			}
+		}
 	}
 	app.Run(os.Args)
 }
