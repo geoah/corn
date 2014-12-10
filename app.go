@@ -175,9 +175,9 @@ func main() {
 			}
 		}
 		for _, series := range seriesList {
-			fmt.Printf("Series '%s'\n", series.SeriesName)
+			// fmt.Printf("Series '%s'\n", series.SeriesName)
 			for _, episode := range series.Episodes {
-				fmt.Printf(" > Season %d Episode %d ", episode.SeasonNumber, episode.EpisodeNumber)
+				fmt.Printf("[%s] Season %d Episode %d ", series.SeriesName, episode.SeasonNumber, episode.EpisodeNumber)
 				if episode.HasAired {
 					if episode.LocalExists {
 						fmt.Printf("is available locally\n")
