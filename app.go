@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -109,22 +110,24 @@ func getSeriesInfo(seriesName string) (Series, error) {
 	}
 }
 
-func (s *Series) getExistingEpisodes() {
+func (s *Series) CheckForExistingEpisodes() {
 	regOne := regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$")
 
-	files, err := ioutil.ReadDir(s.LocalPath)
-	if err == nil {
-		for _, file := range files {
-			if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
-				res := regOne.FindAllStringSubmatch(file.Name(), -1)
-				season := res[0][1]
-				episode := res[0][2]
-				fmt.Println("Season:", season, "Episode:", episode)
+	// err :=
+	filepath.Walk(s.LocalPath, func(path string, file os.FileInfo, err error) error {
+		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
+			res := regOne.FindAllStringSubmatch(file.Name(), -1)
+			season, _ := strconv.ParseUint(res[0][1], 10, 64)
+			episode, _ := strconv.ParseUint(res[0][2], 10, 64)
+			if _, ok := s.Episodes[SeasonEpisode{season, episode}]; ok {
+				s.Episodes[SeasonEpisode{season, episode}].LocalExists = true
+				s.Episodes[SeasonEpisode{season, episode}].LocalFilename = filepath.Join(s.LocalPath, file.Name())
 			}
+			// fmt.Printf("::: [%s] Season %d Episode %d [FOUND]\n", s.SeriesName, season, episode)
 		}
-	} else {
-		fmt.Println(err)
-	}
+		return nil
+	})
+	// fmt.Printf("Could not check directory for series (%s) %v\n", s.SeriesName, err)
 }
 
 func main() {
@@ -165,6 +168,8 @@ func main() {
 					} else {
 						series.LocalPath = filepath.Join(tvpath, folder.Name())
 						seriesList[folder.Name()] = series
+						// Fill in which episodes exists locally
+						series.CheckForExistingEpisodes()
 					}
 				}
 			}
