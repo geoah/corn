@@ -1,12 +1,12 @@
 package main
 
 import (
-	// "encoding/json"
-	// "errors"
+	"encoding/json"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/garfunkel/go-tvdb"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,19 +17,22 @@ import (
 )
 
 type Episode struct {
-	ID            uint64
-	EpisodeName   string
-	EpisodeNumber uint64
-	FirstAired    string
-	ImdbID        string
-	Language      string
-	SeasonNumber  uint64
-	LastUpdated   string
-	SeasonID      uint64
-	SeriesID      uint64
-	HasAired      bool
-	LocalFilename string
-	LocalExists   bool
+	ID             uint64
+	EpisodeName    string
+	EpisodeNumber  uint64
+	FirstAired     string
+	ImdbID         string
+	Language       string
+	SeasonNumber   uint64
+	LastUpdated    string
+	SeasonID       uint64
+	SeriesID       uint64
+	HasAired       bool
+	LocalFilename  string
+	LocalExists    bool
+	LocalQuality   string
+	TorrentQuality string
+	TorrentLink    string
 }
 
 type SeasonEpisode struct {
@@ -135,17 +138,60 @@ func (s *Series) CheckForExistingEpisodes() {
 	})
 }
 
+func (s *Series) FetchTorrentLinks() {
+	url := "http://eztvapi.re/show/" + s.ImdbID
+	res, err := http.Get(url)
+	// TODO Check for errors
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	// TODO Check for errors
+	var ezTvSeries EzTvSeries
+	err = json.Unmarshal(body, &ezTvSeries)
+	if err != nil {
+		// TODO Log Error
+		// fmt.Println("Somethign went wrong.")
+		// fmt.Printf("%T\n%s\n%#v\n", err, err, err)
+		// switch v := err.(type) {
+		// case *json.SyntaxError:
+		// fmt.Println(string(body[v.Offset-40 : v.Offset]))
+		// }
+	} else {
+		for _, episode := range ezTvSeries.Episodes {
+			var torrentLink string
+			var torrentQuality string
+			if episode.Torrents.Hd720p.URL != "" {
+				torrentQuality = "720p"
+				torrentLink = episode.Torrents.Hd720p.URL
+			} else if episode.Torrents.Sd480p.URL != "" {
+				torrentQuality = "480p"
+				torrentLink = episode.Torrents.Sd480p.URL
+			} else {
+				torrentQuality = "sdtv"
+				torrentLink = episode.Torrents.Sd.URL
+			}
+			if torrentLink != "" && s.Episodes[SeasonEpisode{episode.Season, episode.Episode}] != nil {
+				s.Episodes[SeasonEpisode{episode.Season, episode.Episode}].TorrentQuality = torrentQuality
+				s.Episodes[SeasonEpisode{episode.Season, episode.Episode}].TorrentLink = torrentLink
+			}
+		}
+	}
+}
+
 func (s *Series) PrintResults() {
 	for _, episode := range s.Episodes {
-		fmt.Printf("[%s] Season %d Episode %d ", s.SeriesName, episode.SeasonNumber, episode.EpisodeNumber)
+		fmt.Printf("[%s][%s] Season %d Episode %d ", s.LocalName, s.SeriesName, episode.SeasonNumber, episode.EpisodeNumber)
 		if episode.HasAired {
 			if episode.LocalExists {
-				fmt.Printf("is available locally\n")
+				fmt.Printf("is available locally.\n")
 			} else {
-				fmt.Printf("is unavailable locally\n")
+				fmt.Printf("is unavailable locally")
+				if episode.TorrentLink != "" {
+					fmt.Printf(" but I got a magnet link for %s", episode.TorrentQuality)
+				}
+				fmt.Printf(".\n")
 			}
 		} else {
-			fmt.Printf("has not aired yet\n")
+			fmt.Printf("has not aired yet.\n")
 		}
 	}
 }
@@ -186,6 +232,7 @@ func main() {
 						series.fetchInfo()
 						if series.Matched == true {
 							series.CheckForExistingEpisodes()
+							series.FetchTorrentLinks()
 							series.PrintResults()
 						}
 						// Remove from queue

@@ -1,36 +1,36 @@
 package main
 
-type Show struct {
+type EzTvSeries struct {
 	V        float64 `json:"__v"`
 	ID       string  `json:"_id"`
 	AirDay   string  `json:"air_day"`
 	AirTime  string  `json:"air_time"`
 	Country  string  `json:"country"`
 	Episodes []struct {
-		DateBased  bool    `json:"date_based"`
-		Episode    float64 `json:"episode"`
-		FirstAired float64 `json:"first_aired"`
-		Overview   string  `json:"overview"`
-		Season     float64 `json:"season"`
-		Title      string  `json:"title"`
+		DateBased  bool   `json:"date_based"`
+		Episode    uint64 `json:"episode"`
+		FirstAired uint64 `json:"first_aired"`
+		Overview   string `json:"overview"`
+		Season     uint64 `json:"season"`
+		Title      string `json:"title"`
 		Torrents   struct {
 			Sd struct {
-				Peers float64 `json:"peers"`
-				Seeds float64 `json:"seeds"`
-				URL   string  `json:"url"`
+				Peers uint64 `json:"peers"`
+				Seeds uint64 `json:"seeds"`
+				URL   string `json:"url"`
 			} `json:"0"`
 			Sd480p struct {
-				Peers float64 `json:"peers"`
-				Seeds float64 `json:"seeds"`
-				URL   string  `json:"url"`
+				Peers uint64 `json:"peers"`
+				Seeds uint64 `json:"seeds"`
+				URL   string `json:"url"`
 			} `json:"480p"`
 			Hd720p struct {
-				Peers float64 `json:"peers"`
-				Seeds float64 `json:"seeds"`
-				URL   string  `json:"url"`
+				Peers uint64 `json:"peers"`
+				Seeds uint64 `json:"seeds"`
+				URL   string `json:"url"`
 			} `json:"720p"`
 		} `json:"torrents"`
-		TvdbID  float64 `json:"tvdb_id"`
+		TvdbID  uint64 `json:"tvdb_id"`
 		Watched struct {
 			Watched bool `json:"watched"`
 		} `json:"watched"`
@@ -41,10 +41,10 @@ type Show struct {
 		Fanart string `json:"fanart"`
 		Poster string `json:"poster"`
 	} `json:"images"`
-	ImdbID      string  `json:"imdb_id"`
-	LastUpdated float64 `json:"last_updated"`
-	Network     string  `json:"network"`
-	NumSeasons  float64 `json:"num_seasons"`
+	ImdbID      string `json:"imdb_id"`
+	LastUpdated uint64 `json:"last_updated"`
+	Network     string `json:"network"`
+	NumSeasons  uint64 `json:"num_seasons"`
 	Rating      struct {
 		Hated      float64 `json:"hated"`
 		Loved      float64 `json:"loved"`
