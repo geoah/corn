@@ -117,11 +117,13 @@ func (s *Series) CheckForExistingEpisodes() {
 	filepath.Walk(s.LocalPath, func(path string, file os.FileInfo, err error) error {
 		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
 			res := regOne.FindAllStringSubmatch(file.Name(), -1)
-			season, _ := strconv.ParseUint(res[0][1], 10, 64)
-			episode, _ := strconv.ParseUint(res[0][2], 10, 64)
-			if _, ok := s.Episodes[SeasonEpisode{season, episode}]; ok {
-				s.Episodes[SeasonEpisode{season, episode}].LocalExists = true
-				s.Episodes[SeasonEpisode{season, episode}].LocalFilename = filepath.Join(s.LocalPath, file.Name())
+			if len(res) > 0 && len(res[0]) > 0 {
+				season, _ := strconv.ParseUint(res[0][1], 10, 64)
+				episode, _ := strconv.ParseUint(res[0][2], 10, 64)
+				if _, ok := s.Episodes[SeasonEpisode{season, episode}]; ok {
+					s.Episodes[SeasonEpisode{season, episode}].LocalExists = true
+					s.Episodes[SeasonEpisode{season, episode}].LocalFilename = filepath.Join(s.LocalPath, file.Name())
+				}
 			}
 			// fmt.Printf("::: [%s] Season %d Episode %d [FOUND]\n", s.SeriesName, season, episode)
 		}
