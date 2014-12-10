@@ -27,6 +27,27 @@ func getShowInfo(seriesName string) (tvdb.Series, error) {
 	}
 }
 
+func checkSeries(series tvdb.Series) {
+	for _, seasonEpisodes := range series.Seasons {
+		for _, episode := range seasonEpisodes {
+			if episode.FirstAired == "" {
+				// fmt.Println("Missing first aired.")
+			} else {
+				aired, err := time.Parse("2006-01-02", episode.FirstAired)
+				if err != nil {
+					fmt.Println("Could not parse first aired.", err)
+				} else {
+					if aired.Before(time.Now()) {
+						fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "aired", episode.FirstAired)
+					} else {
+						fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "not yet aired, airing on", episode.FirstAired)
+					}
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	app := cli.NewApp()
 
@@ -60,20 +81,7 @@ func main() {
 			// Try to find each series according to folder name
 			series, err := getShowInfo(fi.Name())
 			if err == nil {
-				for _, seasonEpisodes := range series.Seasons {
-					for _, episode := range seasonEpisodes {
-						aired, err := time.Parse("2006-02-01", episode.FirstAired)
-						if err != nil {
-
-						} else {
-							if aired.Before(time.Now()) {
-								fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "aired", episode.FirstAired)
-							} else {
-								fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "not yet aired, airing on", episode.FirstAired)
-							}
-						}
-					}
-				}
+				go checkSeries(series)
 			} else {
 				fmt.Println("Could not match series with error ", err)
 			}
