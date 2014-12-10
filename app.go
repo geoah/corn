@@ -92,20 +92,22 @@ func main() {
 
 		// Loop all directories
 		// TODO Errors
-		fileInfos, err := dir.Readdir(-1)
+
+		files, err := ioutil.ReadDir(tvpath)
 		if err != nil {
-			return
-		}
-		for _, fi := range fileInfos {
-			// TODO Check if is folder
-			// TODO Ignore any file starting with a special charachter
-			fmt.Println("Trying to find series (", fi.Name(), ")")
-			// Try to find each series according to folder name
-			series, err := getShowInfo(fi.Name())
-			if err == nil {
-				go checkSeries(series)
-			} else {
-				fmt.Println("Could not match series (", fi.Name(), ") with error ", err)
+			fmt.Println(err)
+		} else {
+			for _, folder := range files {
+				if folder.IsDir() && !strings.HasPrefix(folder.Name(), ".") {
+					// fmt.Println("Trying to find series (", folder.Name(), ")")
+					// Try to find each series according to folder name
+					series, err := getShowInfo(folder.Name())
+					if err == nil {
+						go checkSeries(series)
+					} else {
+						fmt.Println("Could not match series (", folder.Name(), ") with error ", err)
+					}
+				}
 			}
 		}
 	}
