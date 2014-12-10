@@ -136,7 +136,6 @@ func (s *Series) CheckForExistingEpisodes() {
 }
 
 func (s *Series) PrintResults() {
-	fmt.Printf("Series '%s'\n", s.SeriesName)
 	for _, episode := range s.Episodes {
 		fmt.Printf("[%s] Season %d Episode %d ", s.SeriesName, episode.SeasonNumber, episode.EpisodeNumber)
 		if episode.HasAired {
