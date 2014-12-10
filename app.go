@@ -1,59 +1,118 @@
 package main
 
 import (
+	// "encoding/json"
 	"errors"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/garfunkel/go-tvdb"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 )
 
-// GetSeries from tvdbcom
-func getShowInfo(seriesName string) (tvdb.Series, error) {
-	seriesList, err := tvdb.GetSeries(seriesName)
+type Episode struct {
+	ID            uint64
+	EpisodeName   string
+	EpisodeNumber uint64
+	FirstAired    string
+	ImdbID        string
+	Language      string
+	SeasonNumber  uint64
+	LastUpdated   string
+	SeasonID      uint64
+	SeriesID      uint64
+	HasAired      bool
+	LocalFilename string
+	LocalExists   bool
+}
+
+type SeasonEpisode struct {
+	Season  uint64
+	Episode uint64
+}
+
+type Series struct {
+	ID          uint64
+	ImdbID      string
+	Status      string
+	SeriesID    string
+	SeriesName  string
+	Language    string
+	LastUpdated string
+	Episodes    map[SeasonEpisode]*Episode
+	LocalPath   string
+}
+
+// getSeriesInfo from tvdbcom
+func getSeriesInfo(seriesName string) (Series, error) {
+	seriesListTvDb, err := tvdb.GetSeries(seriesName)
 
 	if err != nil {
-		return tvdb.Series{}, err
+		return Series{}, err
 	}
 
-	if len(seriesList.Series) > 0 {
-		var series = *seriesList.Series[0]
+	if len(seriesListTvDb.Series) > 0 {
+		var series = *seriesListTvDb.Series[0]
 		series.GetDetail()
-		return series, nil
-	} else {
-		return tvdb.Series{}, errors.New("Not found")
-	}
-}
 
-func checkSeries(series tvdb.Series) {
-	for _, seasonEpisodes := range series.Seasons {
-		for _, episode := range seasonEpisodes {
-			if episode.FirstAired == "" {
-				// fmt.Println("Missing first aired.")
-			} else {
-				aired, err := time.Parse("2006-01-02", episode.FirstAired)
-				if err != nil {
-					fmt.Println("Could not parse first aired.", err)
+		seriesSimple := Series{}
+		seriesSimple.ID = series.ID
+		seriesSimple.ImdbID = series.ImdbID
+		seriesSimple.Status = series.Status
+		seriesSimple.SeriesName = series.SeriesName
+		seriesSimple.Language = series.Language
+		seriesSimple.LastUpdated = series.LastUpdated
+		seriesSimple.Episodes = make(map[SeasonEpisode]*Episode)
+
+		for _, seasonEpisodes := range series.Seasons {
+			for _, episode := range seasonEpisodes {
+				episodeSimple := Episode{}
+
+				episodeSimple.ID = episode.ID
+				episodeSimple.EpisodeName = episode.EpisodeName
+				episodeSimple.EpisodeNumber = episode.EpisodeNumber
+				episodeSimple.FirstAired = episode.FirstAired
+				episodeSimple.ImdbID = episode.ImdbID
+				episodeSimple.Language = episode.Language
+				episodeSimple.SeasonNumber = episode.SeasonNumber
+				episodeSimple.LastUpdated = episode.LastUpdated
+				episodeSimple.SeasonID = episode.SeasonID
+				episodeSimple.SeriesID = episode.SeriesID
+
+				if episode.FirstAired == "" {
+					// fmt.Println("Missing first aired.")
 				} else {
-					if aired.Before(time.Now()) {
-						fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "aired", episode.FirstAired)
+					aired, err := time.Parse("2006-01-02", episode.FirstAired)
+					if err != nil {
+						fmt.Println("Could not parse first aired.", err)
 					} else {
-						fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "not yet aired, airing on", episode.FirstAired)
+						if aired.Before(time.Now()) {
+							episodeSimple.HasAired = true
+							// fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "aired", episode.FirstAired)
+						} else {
+							episodeSimple.HasAired = false
+							// fmt.Println(series.SeriesName, "Season", episode.SeasonNumber, "Episode", episode.EpisodeNumber, "not yet aired, airing on", episode.FirstAired)
+						}
 					}
 				}
+				// seriesSimple.Seasons[episode.SeasonNumber] = append(seriesSimple.Seasons[episode.SeasonNumber], &episodeSimple)
+				seriesSimple.Episodes[SeasonEpisode{episode.SeasonNumber, episode.EpisodeNumber}] = &episodeSimple
 			}
 		}
+		return seriesSimple, nil
+	} else {
+		return Series{}, errors.New("Not found")
 	}
 }
 
-func getExistingEpisodes(seriesPath string) {
+func (s *Series) getExistingEpisodes() {
 	regOne := regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$")
 
-	files, err := ioutil.ReadDir(seriesPath)
+	files, err := ioutil.ReadDir(s.LocalPath)
 	if err == nil {
 		for _, file := range files {
 			if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
@@ -63,11 +122,9 @@ func getExistingEpisodes(seriesPath string) {
 				fmt.Println("Season:", season, "Episode:", episode)
 			}
 		}
-
 	} else {
 		fmt.Println(err)
 	}
-
 }
 
 func main() {
@@ -81,7 +138,7 @@ func main() {
 		}
 
 		// Get tvpath from args
-		tvpath := c.Args()[0]
+		tvpath := filepath.Clean(c.Args()[0])
 
 		// Open tvpath directory
 		dir, err := os.Open(tvpath)
@@ -90,23 +147,40 @@ func main() {
 		}
 		defer dir.Close()
 
-		// Loop all directories
-		// TODO Errors
+		// Hold data for all series found locally
+		var seriesList = make(map[string]Series)
 
+		// Loop tvpath for folders and try to match them with series from TvDB
 		files, err := ioutil.ReadDir(tvpath)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Could not list directory contents", err)
 		} else {
 			for _, folder := range files {
 				if folder.IsDir() && !strings.HasPrefix(folder.Name(), ".") {
 					// fmt.Println("Trying to find series (", folder.Name(), ")")
-					// Try to find each series according to folder name
-					series, err := getShowInfo(folder.Name())
-					if err == nil {
-						go checkSeries(series)
-					} else {
+					// Try to match each series according to folder name
+					series, err := getSeriesInfo(folder.Name())
+					if err != nil {
 						fmt.Println("Could not match series (", folder.Name(), ") with error ", err)
+					} else {
+						series.LocalPath = filepath.Join(tvpath, folder.Name())
+						seriesList[folder.Name()] = series
 					}
+				}
+			}
+		}
+		for _, series := range seriesList {
+			fmt.Printf("Series '%s'\n", series.SeriesName)
+			for _, episode := range series.Episodes {
+				fmt.Printf(" > Season %d Episode %d ", episode.SeasonNumber, episode.EpisodeNumber)
+				if episode.HasAired {
+					if episode.LocalExists {
+						fmt.Printf("is available locally\n")
+					} else {
+						fmt.Printf("is unavailable locally\n")
+					}
+				} else {
+					fmt.Printf("has not aired yet\n")
 				}
 			}
 		}
