@@ -3,11 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
-	"time"
-
 	"github.com/codegangsta/cli"
 	"github.com/garfunkel/go-tvdb"
+	"io/ioutil"
+	"os"
+	"regexp"
+	"strings"
+	"time"
 )
 
 // GetSeries from tvdbcom
@@ -46,6 +48,26 @@ func checkSeries(series tvdb.Series) {
 			}
 		}
 	}
+}
+
+func getExistingEpisodes(seriesPath string) {
+	regOne := regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$")
+
+	files, err := ioutil.ReadDir(seriesPath)
+	if err == nil {
+		for _, file := range files {
+			if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
+				res := regOne.FindAllStringSubmatch(file.Name(), -1)
+				season := res[0][1]
+				episode := res[0][2]
+				fmt.Println("Season:", season, "Episode:", episode)
+			}
+		}
+
+	} else {
+		fmt.Println(err)
+	}
+
 }
 
 func main() {
