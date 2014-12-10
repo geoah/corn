@@ -83,7 +83,7 @@ func main() {
 			if err == nil {
 				go checkSeries(series)
 			} else {
-				fmt.Println("Could not match series with error ", err)
+				fmt.Println("Could not match series (", fi.Name(), ") with error ", err)
 			}
 		}
 	}
