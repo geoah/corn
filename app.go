@@ -6,6 +6,7 @@ import (
 	"github.com/codegangsta/martini-contrib/encoder"
 	"github.com/garfunkel/go-tvdb"
 	"github.com/go-martini/martini"
+	"github.com/martini-contrib/cors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -260,6 +261,15 @@ func init() {
 	r.Get(`/series`, GetAllSeries)
 	r.Get(`/series/:id`, GetSeries)
 
+	// Allow CORS
+	m.Use(cors.Allow(&cors.Options{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
+	// Other stuff
 	m.Use(func(c martini.Context, w http.ResponseWriter) {
 		// Inject JSON Encoder
 		c.MapTo(encoder.JsonEncoder{}, (*encoder.Encoder)(nil))
