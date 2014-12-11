@@ -130,35 +130,28 @@ func (s *Series) fetchDetails() {
 }
 
 func (s *Series) CheckForExistingEpisodes() {
-	regOne := regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$")
-	regTwo := regexp.MustCompile(`[\\/\._ \[\(-]([0-9]+)x([0-9]+)([^\\/]*)$`)
-
-	regs := []*regexp.Regexp{regOne, regTwo}
-
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$"),
+		regexp.MustCompile(`[\\/\._ \[\(-]([0-9]+)x([0-9]+)([^\\/]*)$`),
+	}
+	fmt.Println(s.Episodes)
 	filepath.Walk(s.LocalPath, func(filePath string, f os.FileInfo, err error) error {
 		if err != nil {
 			// TODO Log Error
 			return err
 		}
 		if !f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
-			var res [][]string
-
-			for _, reg := range regs {
-				res := reg.FindAllStringSubmatch(f.Name(), -1)
-				if len(res) > 0 && len(res[0]) > 0 {
+			for _, pattern := range patterns {
+				matches := pattern.FindAllStringSubmatch(f.Name(), -1)
+				if len(matches) > 0 && len(matches[0]) > 0 {
+					season, _ := strconv.ParseUint(matches[0][1], 10, 64)
+					episode, _ := strconv.ParseUint(matches[0][2], 10, 64)
+					seasonEpisode := fmt.Sprintf("%d_%d", season, episode)
+					if _, ok := s.Episodes[seasonEpisode]; ok {
+						s.Episodes[seasonEpisode].LocalExists = true
+						s.Episodes[seasonEpisode].LocalFilename = filepath.Join(s.LocalPath, f.Name())
+					}
 					break
-				}
-
-			}
-
-			if len(res) > 0 && len(res[0]) > 0 {
-				season, _ := strconv.ParseUint(res[0][1], 10, 64)
-				episode, _ := strconv.ParseUint(res[0][2], 10, 64)
-				// k := SeasonEpisode{season, episode}
-				k := fmt.Sprintf("%d_%d", season, episode)
-				if _, ok := s.Episodes[k]; ok {
-					s.Episodes[k].LocalExists = true
-					s.Episodes[k].LocalFilename = filepath.Join(s.LocalPath, f.Name())
 				}
 			}
 		}
