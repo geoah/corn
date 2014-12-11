@@ -134,7 +134,6 @@ func (s *Series) CheckForExistingEpisodes() {
 		regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$"),
 		regexp.MustCompile(`[\\/\._ \[\(-]([0-9]+)x([0-9]+)([^\\/]*)$`),
 	}
-	fmt.Println(s.Episodes)
 	filepath.Walk(s.LocalPath, func(filePath string, f os.FileInfo, err error) error {
 		if err != nil {
 			// TODO Log Error
