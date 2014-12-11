@@ -35,10 +35,10 @@ type Episode struct {
 	TorrentLink    string
 }
 
-type SeasonEpisode struct {
-	Season  uint64
-	Episode uint64
-}
+// type SeasonEpisode struct {
+// 	Season  uint64
+// 	Episode uint64
+// }
 
 type Series struct {
 	ID          uint64
@@ -49,9 +49,10 @@ type Series struct {
 	SeriesName  string
 	Language    string
 	LastUpdated string
-	Episodes    map[SeasonEpisode]*Episode
-	LocalName   string
-	LocalPath   string
+	// Episodes    map[SeasonEpisode]*Episode
+	Episodes  map[string]*Episode
+	LocalName string
+	LocalPath string
 }
 
 // getSeriesInfo from tvdbcom
@@ -74,7 +75,8 @@ func (s *Series) fetchInfo() {
 		s.SeriesName = series.SeriesName
 		s.Language = series.Language
 		s.LastUpdated = series.LastUpdated
-		s.Episodes = make(map[SeasonEpisode]*Episode)
+		// s.Episodes = make(map[SeasonEpisode]*Episode)
+		s.Episodes = make(map[string]*Episode)
 
 		for _, seasonEpisodes := range series.Seasons {
 			for _, episode := range seasonEpisodes {
@@ -107,7 +109,8 @@ func (s *Series) fetchInfo() {
 						}
 					}
 				}
-				s.Episodes[SeasonEpisode{episode.SeasonNumber, episode.EpisodeNumber}] = &episodeSimple
+				// s.Episodes[SeasonEpisode{episode.SeasonNumber, episode.EpisodeNumber}] = &episodeSimple
+				s.Episodes[fmt.Sprintf("%d_%d", episode.SeasonNumber, episode.EpisodeNumber)] = &episodeSimple
 			}
 		}
 	} else {
@@ -128,9 +131,11 @@ func (s *Series) CheckForExistingEpisodes() {
 			if len(res) > 0 && len(res[0]) > 0 {
 				season, _ := strconv.ParseUint(res[0][1], 10, 64)
 				episode, _ := strconv.ParseUint(res[0][2], 10, 64)
-				if _, ok := s.Episodes[SeasonEpisode{season, episode}]; ok {
-					s.Episodes[SeasonEpisode{season, episode}].LocalExists = true
-					s.Episodes[SeasonEpisode{season, episode}].LocalFilename = filepath.Join(s.LocalPath, f.Name())
+				// k := SeasonEpisode{season, episode}
+				k := fmt.Sprintf("%d_%d", season, episode)
+				if _, ok := s.Episodes[k]; ok {
+					s.Episodes[k].LocalExists = true
+					s.Episodes[k].LocalFilename = filepath.Join(s.LocalPath, f.Name())
 				}
 			}
 		}
@@ -169,9 +174,11 @@ func (s *Series) FetchTorrentLinks() {
 				torrentQuality = "sdtv"
 				torrentLink = episode.Torrents.Sd.URL
 			}
-			if torrentLink != "" && s.Episodes[SeasonEpisode{episode.Season, episode.Episode}] != nil {
-				s.Episodes[SeasonEpisode{episode.Season, episode.Episode}].TorrentQuality = torrentQuality
-				s.Episodes[SeasonEpisode{episode.Season, episode.Episode}].TorrentLink = torrentLink
+			// k :=SeasonEpisode{episode.Season, episode.Episode}
+			k := fmt.Sprintf("%d_%d", episode.Season, episode.Episode)
+			if torrentLink != "" && s.Episodes[k] != nil {
+				s.Episodes[k].TorrentQuality = torrentQuality
+				s.Episodes[k].TorrentLink = torrentLink
 			}
 		}
 	}
@@ -194,6 +201,14 @@ func (s *Series) PrintResults() {
 			fmt.Printf("has not aired yet.\n")
 		}
 	}
+}
+
+func (s *Series) PrintJsonResults() {
+	b, err := json.Marshal(s)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	os.Stdout.Write(b)
 }
 
 func main() {
@@ -234,6 +249,7 @@ func main() {
 							series.CheckForExistingEpisodes()
 							series.FetchTorrentLinks()
 							series.PrintResults()
+							// series.PrintJsonResults()
 						}
 						// Remove from queue
 						wg.Done()
