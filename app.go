@@ -130,6 +130,9 @@ func (s *Series) fetchDetails() {
 
 func (s *Series) CheckForExistingEpisodes() {
 	regOne := regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$")
+	regTwo := regexp.MustCompile(`[\\/\._ \[\(-]([0-9]+)x([0-9]+)([^\\/]*)$`)
+
+	regs := []*regexp.Regexp{regOne, regTwo}
 
 	filepath.Walk(s.LocalPath, func(filePath string, f os.FileInfo, err error) error {
 		if err != nil {
@@ -137,7 +140,16 @@ func (s *Series) CheckForExistingEpisodes() {
 			return err
 		}
 		if !f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
-			res := regOne.FindAllStringSubmatch(f.Name(), -1)
+			var res [][]string
+
+			for _, reg := range regs {
+				res := reg.FindAllStringSubmatch(f.Name(), -1)
+				if len(res) > 0 && len(res[0]) > 0 {
+					break
+				}
+
+			}
+
 			if len(res) > 0 && len(res[0]) > 0 {
 				season, _ := strconv.ParseUint(res[0][1], 10, 64)
 				episode, _ := strconv.ParseUint(res[0][2], 10, 64)
