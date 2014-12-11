@@ -40,12 +40,6 @@ func PopSeries() {
 					series.LocalName = folderName
 					series.LocalPath = filepath.Join(tvpath, folderName)
 					series.fetchInfo()
-					// if series.Matched == true {
-					// 	series.CheckForExistingEpisodes()
-					// 	series.FetchTorrentLinks()
-					// 	series.PrintResults()
-					// 	// series.PrintJsonResults()
-					// }
 					// TODO Retry, Sometimes the tv api fucks up
 					if series.Matched == true {
 						store.Add(&series)
@@ -76,6 +70,12 @@ func GetSeries(enc encoder.Encoder, store Store, parms martini.Params) (int, []b
 	} else {
 		series := store.Get(id)
 		series.fetchDetails()
+		if series.Matched == true {
+			series.CheckForExistingEpisodes()
+			series.FetchTorrentLinks()
+			// series.PrintResults()
+			// series.PrintJsonResults()
+		}
 		// TODO Check if payload exists
 		return http.StatusOK, encoder.Must(enc.Encode(series))
 	}
