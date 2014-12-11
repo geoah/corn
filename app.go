@@ -119,6 +119,8 @@ func (s *Series) CheckForExistingEpisodes() {
 	regOne := regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$")
 	regTwo := regexp.MustCompile(`[\\/\._ \[\(-]([0-9]+)x([0-9]+)([^\\/]*)$`)
 
+	regs := []*regexp.Regexp{regOne, regTwo}
+
 	filepath.Walk(s.LocalPath, func(filePath string, f os.FileInfo, err error) error {
 		if err != nil {
 			// TODO Log Error
@@ -126,15 +128,13 @@ func (s *Series) CheckForExistingEpisodes() {
 		}
 		if !f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
 			var res [][]string
-			resOne := regOne.FindAllStringSubmatch(f.Name(), -1)
-			resTwo := regTwo.FindAllStringSubmatch(f.Name(), -1)
 
-			if len(resOne) > 0 && len(resOne[0]) > 0 {
-				res = append(res, resOne...)
-			}
+			for _, reg := range regs {
+				res := reg.FindAllStringSubmatch(f.Name(), -1)
+				if len(res) > 0 && len(res[0]) > 0 {
+					break
+				}
 
-			if len(resTwo) > 0 && len(resTwo[0]) > 0 {
-				res = append(res, resTwo...)
 			}
 
 			if len(res) > 0 && len(res[0]) > 0 {
