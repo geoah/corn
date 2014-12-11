@@ -3,16 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/codegangsta/cli"
+	"github.com/codegangsta/martini-contrib/encoder"
 	"github.com/garfunkel/go-tvdb"
+	"github.com/go-martini/martini"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -55,26 +56,35 @@ type Series struct {
 	LocalPath string
 }
 
-// getSeriesInfo from tvdbcom
+// Get basic information from tvdbcom
 func (s *Series) fetchInfo() {
 	// TODO Get just directory instead of full path if LocalPath is absolute
 	seriesListTvDb, err := tvdb.GetSeries(s.LocalName)
-	if err != nil {
-		fmt.Println("Could not match")
-		return
-	}
-
-	if len(seriesListTvDb.Series) > 0 {
-		s.Matched = true
+	if err != nil || len(seriesListTvDb.Series) == 0 {
+		s.Matched = false
+		// fmt.Println("Could not match")
+	} else {
 		series := *seriesListTvDb.Series[0]
-		series.GetDetail()
-
+		s.Matched = true
 		s.ID = series.ID
 		s.ImdbID = series.ImdbID
 		s.Status = series.Status
 		s.SeriesName = series.SeriesName
 		s.Language = series.Language
 		s.LastUpdated = series.LastUpdated
+	}
+}
+
+// Get detailed information from tvdbcom
+func (s *Series) fetchDetails() {
+	if s.Matched == true {
+		seriesListTvDb, err := tvdb.GetSeries(s.LocalName)
+		if err != nil || len(seriesListTvDb.Series) == 0 {
+			// fmt.Println("Could not match")
+			return
+		}
+		series := *seriesListTvDb.Series[0]
+		series.GetDetail()
 		// s.Episodes = make(map[SeasonEpisode]*Episode)
 		s.Episodes = make(map[string]*Episode)
 
@@ -211,55 +221,60 @@ func (s *Series) PrintJsonResults() {
 	os.Stdout.Write(b)
 }
 
-func main() {
-	app := cli.NewApp()
+// Martini instance
+var m *martini.Martini
+var store Store
 
-	app.Action = func(c *cli.Context) {
-		if len(c.Args()) == 0 {
-			fmt.Println("Missing tv directory path.")
-			return
-		}
+// Create config struct to hold random things
+var config struct {
+	tvPath string
+}
 
-		// Get tvpath from args
-		tvpath := filepath.Clean(c.Args()[0])
-
-		// Open tvpath directory
-		dir, err := os.Open(tvpath)
-		if err != nil {
-			return
-		}
-		defer dir.Close()
-
-		var wg sync.WaitGroup
-		// Loop tvpath for folders and try to match them with series from TvDB
-		files, err := ioutil.ReadDir(tvpath)
-		if err != nil {
-			fmt.Println("Could not list directory contents", err)
-		} else {
-			for _, folder := range files {
-				if folder.IsDir() && !strings.HasPrefix(folder.Name(), ".") {
-					// Add to queue
-					wg.Add(1)
-					go func(tvpath string, folderName string) {
-						var series Series = Series{}
-						series.LocalName = folderName
-						series.LocalPath = filepath.Join(tvpath, folderName)
-						series.fetchInfo()
-						if series.Matched == true {
-							series.CheckForExistingEpisodes()
-							series.FetchTorrentLinks()
-							series.PrintResults()
-							// series.PrintJsonResults()
-						}
-						// Remove from queue
-						wg.Done()
-					}(tvpath, folder.Name())
-				}
-			}
-		}
-		// Wait for queue to be completed
-		wg.Wait()
+func init() {
+	// Initialize store
+	store = &SeriesStore{
+		m: make(map[uint64]*Series),
 	}
 
-	app.Run(os.Args)
+	// Initialize martini
+	m = martini.New()
+
+	// Setup martini middleware
+	m.Use(martini.Recovery())
+	m.Use(martini.Logger())
+
+	// Setup routes
+	r := martini.NewRouter()
+	r.Get(`/series`, GetAllSeries)
+	r.Get(`/series/:id`, GetSeries)
+
+	m.Use(func(c martini.Context, w http.ResponseWriter) {
+		// Inject JSON Encoder
+		c.MapTo(encoder.JsonEncoder{}, (*encoder.Encoder)(nil))
+		// Force Content-Type
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	})
+	// Inject database
+	m.MapTo(store, (*Store)(nil))
+	// Add the router action
+	m.Action(r.Handle)
+}
+
+func main() {
+	// Check tvpath argument
+	if len(os.Args) == 1 {
+		fmt.Println("Missing tv directory path.")
+		return
+	}
+
+	// Get tvpath from args
+	config.tvPath = filepath.Clean(os.Args[1])
+
+	// Populate series from tvpath
+	PopSeries()
+
+	// Startup HTTP server
+	if err := http.ListenAndServe(":8000", m); err != nil {
+		log.Fatal(err)
+	}
 }
