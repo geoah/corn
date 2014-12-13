@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/NoahShen/aria2rpc"
 	"github.com/codegangsta/martini-contrib/encoder"
 	"github.com/garfunkel/go-tvdb"
 	"github.com/go-martini/martini"
@@ -16,6 +18,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+type EpisodeStatus int8
+
+const (
+	NonExisting EpisodeStatus = 0
+	Exists      EpisodeStatus = 1
+	Downloading EpisodeStatus = 2
+	Queued      EpisodeStatus = 3
+	Completed   EpisodeStatus = 4
+	Error       EpisodeStatus = -1
 )
 
 type Episode struct {
@@ -35,6 +48,8 @@ type Episode struct {
 	LocalQuality   string
 	TorrentQuality string
 	TorrentLink    string
+	Status         EpisodeStatus
+	AriaGid        string
 }
 
 // type SeasonEpisode struct {
@@ -74,6 +89,85 @@ func (s *Series) fetchInfo() {
 		s.Language = series.Language
 		s.LastUpdated = series.LastUpdated
 	}
+}
+
+func (e *Episode) checkDownloadComplete() (bool, error) {
+	ticker := time.NewTicker(time.Second * 10)
+	for _ = range ticker.C {
+		keys := []string{"status", "dir", "files"}
+		status, err := aria2rpc.GetStatus(e.AriaGid, keys)
+		if err != nil {
+			if status["status"] == "complete" {
+				//Move File
+				//Change e.Status
+				//Remove from list
+				break
+			}
+		}
+	}
+	return false, nil
+}
+
+//Start downloading episode when status 0, 2, 3
+func (e *Episode) start() error {
+	params := make(map[string]interface{})
+	params["dir"] = "/tmp"
+
+	switch e.Status {
+	case NonExisting:
+		gid, err := aria2rpc.AddUri(e.TorrentLink, params)
+		if err == nil {
+			e.AriaGid = gid
+			e.Status = Downloading
+			go e.checkDownloadComplete()
+			return nil
+		} else {
+			return err
+		}
+	case Exists:
+		return errors.New("Episode exists.")
+	case Downloading:
+		return nil
+	case Queued:
+		_, err := aria2rpc.Unpause(e.AriaGid)
+		if err == nil {
+			e.Status = Downloading
+			return nil
+		} else {
+			return err
+		}
+	}
+	e.Status = Error
+	return errors.New("Episode start() error.")
+}
+
+func (e *Episode) stop() {
+
+}
+
+//Pause episode if downloading
+func (e *Episode) pause() error {
+	if len(e.AriaGid) > 0 && e.Status == Downloading {
+		_, err := aria2rpc.Pause(e.AriaGid, false)
+		if err != nil {
+			e.Status = Error
+			return err
+		}
+	} else {
+		return errors.New("Episode stop() error.")
+	}
+	return nil
+}
+
+// Remove episode from list if completed
+func (e *Episode) remove() error {
+	if len(e.AriaGid) > 0 && e.Status == Exists {
+		_, err := aria2rpc.Remove(e.AriaGid, false)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Get detailed information from tvdbcom
@@ -281,6 +375,9 @@ func main() {
 		return
 	}
 
+	// params := make(map[string]interface{})
+	// params["dir"] = "/tmp"
+	// aria2rpc.AddUri("magnet:?xt=urn:btih:DD21157FE1B849ED16D66EB0E45169FB47B02E73&dn=implanted+2013+1080p+brrip+x264+yify&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80%2Fannounce&tr=udp%3A%2F%2Fopen.demonii.com%3A1337", params)
 	// Get tvpath from args
 	config.tvPath = filepath.Clean(os.Args[1])
 
