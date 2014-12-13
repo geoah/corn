@@ -99,6 +99,7 @@ func (e *Episode) checkDownloadComplete() (bool, error) {
 		status, err := aria2rpc.GetStatus(e.AriaGid, keys)
 		if err != nil {
 			if status["status"] == "complete" {
+				//Todo
 				//Move File
 				//Change e.Status
 				//Remove from list
@@ -168,6 +169,7 @@ func (e *Episode) stop() error {
 		if err != nil {
 			return err
 		} else {
+			//ToDo: delete tempfile
 			e.AriaGid = ""
 			e.Status = NonExisting
 		}
