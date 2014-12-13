@@ -27,7 +27,8 @@ const (
 	Exists      EpisodeStatus = 1
 	Downloading EpisodeStatus = 2
 	Queued      EpisodeStatus = 3
-	Completed   EpisodeStatus = 4
+	Paused      EpisodeStatus = 4
+	Completed   EpisodeStatus = 9
 	Error       EpisodeStatus = -1
 )
 
@@ -149,6 +150,7 @@ func (e *Episode) remove() {
 func (e *Episode) pause() error {
 	if len(e.AriaGid) > 0 && e.Status == Downloading {
 		_, err := aria2rpc.Pause(e.AriaGid, false)
+		e.Status = Paused
 		if err != nil {
 			e.Status = Error
 			return err
@@ -161,10 +163,13 @@ func (e *Episode) pause() error {
 
 // Remove episode from list if completed
 func (e *Episode) stop() error {
-	if len(e.AriaGid) > 0 && e.Status == Exists {
+	if len(e.AriaGid) > 0 {
 		_, err := aria2rpc.Remove(e.AriaGid, false)
 		if err != nil {
 			return err
+		} else {
+			e.AriaGid = ""
+			e.Status = NonExisting
 		}
 	}
 	return nil
@@ -332,7 +337,13 @@ var config struct {
 func (s *Series) DownloadEpisodes() {
 	s.fetchDetails()
 	s.CheckForExistingEpisodes()
+	s.FetchTorrentLinks()
 	s.PrintResults()
+	// episodes := s.Episodes
+	// for _, e := range episodes {
+
+	// }
+
 }
 
 func init() {
