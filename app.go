@@ -141,7 +141,7 @@ func (e *Episode) start() error {
 	return errors.New("Episode start() error.")
 }
 
-func (e *Episode) stop() {
+func (e *Episode) remove() {
 
 }
 
@@ -160,7 +160,7 @@ func (e *Episode) pause() error {
 }
 
 // Remove episode from list if completed
-func (e *Episode) remove() error {
+func (e *Episode) stop() error {
 	if len(e.AriaGid) > 0 && e.Status == Exists {
 		_, err := aria2rpc.Remove(e.AriaGid, false)
 		if err != nil {
@@ -329,6 +329,12 @@ var config struct {
 	tvPath string
 }
 
+func (s *Series) DownloadEpisodes() {
+	s.fetchDetails()
+	s.CheckForExistingEpisodes()
+	s.PrintResults()
+}
+
 func init() {
 	// Initialize store
 	store = &SeriesStore{
@@ -383,6 +389,10 @@ func main() {
 
 	// Populate series from tvpath
 	PopSeries()
+
+	for _, s := range store.GetAll() {
+		s.DownloadEpisodes()
+	}
 
 	// Startup HTTP server
 	if err := http.ListenAndServe(":8000", m); err != nil {
