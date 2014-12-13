@@ -51,10 +51,10 @@ type Series struct {
 	SeriesName  string
 	Language    string
 	LastUpdated string
-	// Episodes    map[SeasonEpisode]*Episode
-	Episodes  map[string]*Episode
-	LocalName string
-	LocalPath string
+	Episodes    map[string]*Episode
+	LocalName   string
+	LocalPath   string
+	Poster      string
 }
 
 // Get basic information from tvdbcom
@@ -65,14 +65,20 @@ func (s *Series) fetchInfo() {
 		s.Matched = false
 		// fmt.Println("Could not match")
 	} else {
-		series := *seriesListTvDb.Series[0]
-		s.Matched = true
-		s.ID = series.ID
-		s.ImdbID = series.ImdbID
-		s.Status = series.Status
-		s.SeriesName = series.SeriesName
-		s.Language = series.Language
-		s.LastUpdated = series.LastUpdated
+		// series := *seriesListTvDb.Series[0]
+		series, err := tvdb.GetSeriesByID(seriesListTvDb.Series[0].ID)
+		if err != nil {
+			s.Matched = false
+		} else {
+			s.Matched = true
+			s.ID = series.ID
+			s.ImdbID = series.ImdbID
+			s.Status = series.Status
+			s.SeriesName = series.SeriesName
+			s.Language = series.Language
+			s.LastUpdated = series.LastUpdated
+			s.Poster = series.Poster
+		}
 	}
 }
 
