@@ -232,8 +232,8 @@ func (s *Series) fetchDetails() {
 
 func (s *Series) CheckForExistingEpisodes() {
 	patterns := []*regexp.Regexp{
-		regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*)$"),
-		regexp.MustCompile(`[\\/\._ \[\(-]([0-9]+)x([0-9]+)([^\\/]*)$`),
+		regexp.MustCompile("[Ss]([0-9]+)[][ ._-]*[Ee]([0-9]+)([^\\/]*).(avi|mkv)$"),
+		regexp.MustCompile(`[\\/\._ \[\(-]([0-9]+)x([0-9]+)([^\\/]*).(avi|mkv)$`),
 	}
 	filepath.Walk(s.LocalPath, func(filePath string, f os.FileInfo, err error) error {
 		if err != nil {
@@ -249,7 +249,10 @@ func (s *Series) CheckForExistingEpisodes() {
 					seasonEpisode := fmt.Sprintf("%d_%d", season, episode)
 					if _, ok := s.Episodes[seasonEpisode]; ok {
 						s.Episodes[seasonEpisode].LocalExists = true
+						s.Episodes[seasonEpisode].Status = Exists
 						s.Episodes[seasonEpisode].LocalFilename = filepath.Join(s.LocalPath, f.Name())
+					} else {
+						s.Episodes[seasonEpisode].Status = NonExisting
 					}
 					break
 				}
@@ -336,15 +339,20 @@ var config struct {
 	tvPath string
 }
 
+// Add NonExisting episodes to aria2
 func (s *Series) DownloadEpisodes() {
 	s.fetchDetails()
 	s.CheckForExistingEpisodes()
 	s.FetchTorrentLinks()
 	s.PrintResults()
-	// episodes := s.Episodes
-	// for _, e := range episodes {
-
-	// }
+	episodes := s.Episodes
+	for _, e := range episodes {
+		if e.Status == NonExisting {
+			if e.TorrentLink != "" {
+				e.start()
+			}
+		}
+	}
 
 }
 
