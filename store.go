@@ -8,6 +8,7 @@ import (
 type Store interface {
 	Get(id uint64) *Series
 	GetAll() []*Series
+	GetEpisode(sid uint64, eid string) *Episode
 	Add(p *Series) (uint64, error)
 	Update(p *Series) error
 }
@@ -39,6 +40,13 @@ func (store *SeriesStore) Get(id uint64) *Series {
 	store.RLock()
 	defer store.RUnlock()
 	return store.m[id]
+}
+
+// Returns single Episode
+func (store *SeriesStore) GetEpisode(sid uint64, eid string) *Episode {
+	store.RLock()
+	defer store.RUnlock()
+	return store.m[sid].Episodes[eid]
 }
 
 // Add stores a new Series and returns its newly generated id, or an error.

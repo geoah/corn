@@ -57,6 +57,58 @@ func PopSeries() {
 	wg.Wait()
 }
 
+func AddEpisode(enc encoder.Encoder, store Store, parms martini.Params) (int, []byte) {
+	// TODO Check for parms:id
+	// Get payload Object from Store
+	id, err := strconv.ParseUint(parms["id"], 10, 64)
+	// eid, err := strconv.ParseUint(parms["eid"], 10, 64)
+	eid := parms["eid"]
+	fmt.Println(id, eid)
+	if err != nil {
+		return http.StatusBadRequest, encoder.Must(enc.Encode(err))
+	} else {
+		series := store.Get(id)
+		series.fetchDetails()
+		if series.Matched == true {
+			series.CheckForExistingEpisodes()
+			series.FetchTorrentLinks()
+			// series.PrintResults()
+			// series.PrintJsonResults()
+			episode := store.GetEpisode(id, eid)
+			episode.start()
+			return http.StatusOK, encoder.Must(enc.Encode(episode))
+		}
+		// TODO Check if payload exists
+		return http.StatusNotFound, nil
+	}
+}
+
+func GetEpisode(enc encoder.Encoder, store Store, parms martini.Params) (int, []byte) {
+	// TODO Check for parms:id
+	// Get payload Object from Store
+	id, err := strconv.ParseUint(parms["id"], 10, 64)
+	// eid, err := strconv.ParseUint(parms["eid"], 10, 64)
+	eid := parms["eid"]
+	fmt.Println(id, eid)
+	if err != nil {
+		return http.StatusBadRequest, encoder.Must(enc.Encode(err))
+	} else {
+		series := store.Get(id)
+		series.fetchDetails()
+		if series.Matched == true {
+			series.CheckForExistingEpisodes()
+			series.FetchTorrentLinks()
+			// series.PrintResults()
+			// series.PrintJsonResults()
+			episode := store.GetEpisode(id, eid)
+			return http.StatusOK, encoder.Must(enc.Encode(episode))
+		}
+		// TODO Check if payload exists
+		return http.StatusNotFound, nil
+	}
+
+}
+
 func GetAllSeries(r *http.Request, enc encoder.Encoder, store Store) []byte {
 	return encoder.Must(enc.Encode(store.GetAll()))
 }

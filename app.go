@@ -112,8 +112,15 @@ func (e *Episode) checkDownloadComplete() (bool, error) {
 
 //Start downloading episode when status 0, 2, 3
 func (e *Episode) start() error {
+
 	params := make(map[string]interface{})
-	params["dir"] = "/tmp"
+	// params["dir"] = "/tmp"
+
+	if config.tempPath != "" {
+		params["dir"] = config.tempPath
+	} else {
+		params = nil
+	}
 
 	switch e.Status {
 	case NonExisting:
@@ -334,9 +341,14 @@ func (s *Series) PrintJsonResults() {
 var m *martini.Martini
 var store Store
 
+// Simultaneous files downloading count
+var downCount int
+
 // Create config struct to hold random things
 var config struct {
-	tvPath string
+	tvPath       string
+	maxDownloads int
+	tempPath     string
 }
 
 // Add NonExisting episodes to aria2
@@ -349,7 +361,8 @@ func (s *Series) DownloadEpisodes() {
 	for _, e := range episodes {
 		if e.Status == NonExisting {
 			if e.TorrentLink != "" {
-				e.start()
+				// e.start()
+				fmt.Println(e.EpisodeName)
 			}
 		}
 	}
@@ -373,6 +386,8 @@ func init() {
 	r := martini.NewRouter()
 	r.Get(`/series`, GetAllSeries)
 	r.Get(`/series/:id`, GetSeries)
+	r.Post(`/series/:id/episodes/:eid`, AddEpisode)
+	r.Get(`/series/:id/episodes/:eid`, GetEpisode)
 
 	// Allow CORS
 	m.Use(cors.Allow(&cors.Options{
@@ -396,6 +411,7 @@ func init() {
 }
 
 func main() {
+	//TODO
 	// Check tvpath argument
 	if len(os.Args) == 1 {
 		fmt.Println("Missing tv directory path.")
@@ -404,9 +420,12 @@ func main() {
 
 	// params := make(map[string]interface{})
 	// params["dir"] = "/tmp"
-	// aria2rpc.AddUri("magnet:?xt=urn:btih:DD21157FE1B849ED16D66EB0E45169FB47B02E73&dn=implanted+2013+1080p+brrip+x264+yify&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80%2Fannounce&tr=udp%3A%2F%2Fopen.demonii.com%3A1337", params)
+
 	// Get tvpath from args
 	config.tvPath = filepath.Clean(os.Args[1])
+	if len(os.Args) == 3 {
+		config.tempPath = filepath.Clean(os.Args[2])
+	}
 
 	// Populate series from tvpath
 	PopSeries()
